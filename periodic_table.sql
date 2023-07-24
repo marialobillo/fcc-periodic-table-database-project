@@ -62,7 +62,6 @@ ALTER TABLE public.elements OWNER TO freecodecamp;
 
 CREATE TABLE public.properties (
     atomic_number integer NOT NULL,
-    type character varying(30),
     atomic_mass numeric NOT NULL,
     melting_point_celsius numeric NOT NULL,
     boiling_point_celsius numeric NOT NULL,
