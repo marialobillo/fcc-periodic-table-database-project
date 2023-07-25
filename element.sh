@@ -1,40 +1,50 @@
-#! /bin/bash
+#!/bin/bash
 
-PSQL="psql --username=freecodecamp --dbname=periodic_table --tuples-only -c"
+PSQL="psql --username=freecodecamp --dbname=number_guess --tuples-only -c"
 
+RANDOM_NUMBER = $(( $RANDOM % 1000 + 1 ))
+COUNT_GUESSES=0
+GUESS_NUMBER=-1
 
-if [[ -z $1 ]]
+echo "Enter your username:"
+read USERNAME
+
+# check if the name is in users table
+USER_ID = echo $($PSQL "select user_id from users where username='$USERNAME'")
+
+if [[ -z $USER_ID ]]
 then
-  echo "Please provide an element as an argument."
-  exit
-fi
-
-if [[ $1 =~ ^[1-9]+$ ]]
-then
-  info=$($PSQL "select 
-  e.atomic_number, name, symbol, type, atomic_mass, melting_point_celsius, boiling_point_celsius 
-  from elements e 
-  join properties p on e.atomic_number=p.atomic_number 
-  join types t on t.type_id=p.type_id 
-  where p.atomic_number = '$1'")
+  # the user is NOT in db, so insert username
+  INSERT_USER=$($PSQL "insert into users (username) values ('$USERNAME')")
+  USER_ID=$($PSQL "select user_id from users where username='$USERNAME'")
+  echo "Welcome, '$USERNAME'! It looks like this is your first time here."
+  
 else
-  info=$($PSQL "select 
-  e.atomic_number, name, symbol, type, atomic_mass, melting_point_celsius, boiling_point_celsius 
-  from elements e 
-  join properties p on e.atomic_number=p.atomic_number 
-  join types t on t.type_id=p.type_id 
-  where name = '$1' or symbol = '$1'")
+  # the user is already in db
+  GAMES_PLAYED=$($PSQL "select count(*) from games where user_id='$USER_ID'")
+  BEST_GAME=$($PSQL "select min(guesses) from games where user_id='$USER_ID'")
+  echo "Welcome back, '$USERNAME'! You have played $GAMES_PLAYED games, and your best game took $BEST_GAME guesses."
 fi
 
-if [[ -z $info ]]
-then
-  echo -e "I could not find that element in the database."
-  exit
-fi
+echo "Guess the secret number between 1 and 1000:"
 
-echo "$info" | while read atomic_number bar name bar symbol bar type bar atomic_mass bar melting bar boiling
+until [[ $GUESS_NUMBER == $RANDOM_NUMBER ]]
 do
-  echo -e "The element with atomic number $atomic_number is $name ($symbol). It's a $type, with a mass of $atomic_mass amu. $name has a melting point of $melting celsius and a boiling point of $boiling celsius."
+  ((COUNT_GUESSES++))
+  read GUESS_NUMBER 
+
+  # check if guess number is a number
+  if [[ ! $GUESS_NUMBER =~ ^[1-9]+$ ]]
+  then
+    echo "That is not an integer, guess again:"
+  elif [[ $GUESS_NUMBER -gt $RANDOM_NUMBER ]]
+  then 
+    echo "It's lower than that, guess again:"
+  elif [[ $GUESS_NUMBER -lt $RANDOM_NUMBER ]]
+  then
+    echo "It's higher than that, guess again:"
+  fi
 done
 
-
+RESULT=$($PSQL "insert into games (user_id, guesses) values ($USER_ID, $COUNT_GUESSES)")
+echo "You guessed it in $COUNT_GUESSES tries. The secret number was $RANDOM_NUMBER. Nice job!"
